@@ -1,0 +1,253 @@
+﻿@page "/"
+@using Shop.DataModels.CustomModels;
+@using Shop.Web.Services;
+@inject IUserPanelService userPanelService
+@inject ProtectedSessionStorage sessionStorage;
+@inject NavigationManager navManager;
+<style>
+    .column {
+        float: left;
+        padding: 15px;
+    }
+
+    .clearfix::after {
+        content: "";
+        clear: both;
+        display: table;
+    }
+
+    .menu {
+        width: 250px;
+        margin-top: 10px;
+        border: 1px outset #808080;
+        border-radius: 7px;
+        background: linear-gradient(-10deg, #ffd800, #808080, #23a6d5, #f5f542);
+        color: black;
+    }
+
+    .content {
+        width: 75px;
+    }
+
+    .menu ul {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    .menu li {
+        padding: 8px;
+        margin-bottom: 8px;
+        color: black;
+        background-color: white;
+    }
+
+        .menu li:hover {
+            background-color: #e7e4e4;
+            color: #808080;
+        }
+
+    .stuff {
+        padding: 8px;
+        margin: 1px;
+        background-color: white;
+        border: 1px outset black;
+        width: 250px;
+        max-width: 720px;
+    }
+
+    .add-to-cart {
+        border: 1px outset #808080;
+        width: 100%;
+        background-color: #b6ff00;
+    }
+
+    .row{
+        flex-wrap:unset;
+    }
+</style>
+
+
+<div style="min-height:700px;">
+    <div class="column menu">
+        @if (categories == null)
+        {
+            <span>Loading...</span>
+        }
+        else
+        {
+            <div style="text-align:center"><h5>Shopping Category</h5></div>
+            <ul>
+                @foreach (var category in categories)
+                {
+                    <li style="cursor:pointer;" @onclick="(()=>LoadProductByCategory(category))">@category.Name</li>
+                }
+            </ul>
+        }
+
+    </div>
+    <div class="column content">
+        @if (products == null)
+        {
+            <span>Loading...</span>
+        }
+        else
+        {
+            <div class="container">
+                <div style=" padding:5px 0px 0px 0px; border-bottom:1px ridge black; margin-bottom:5px;">
+                    <h5><i><u>@categoryName</u></i></h5>
+                </div>
+            </div>
+            <div class="row">              
+                @foreach (var p in products)
+                {
+                    <div class="col-md-">
+                        <div class="col-md-12 stuff">
+                            <div style="width:100%; border-radius:2px;background-color:white;">
+                                <button type="button" class="btn" style="border:2px #cff7f9 inset; width:200px;">@p.Name</button>
+                                <img src="https://localhost:44318/@p.ImageUrl" style="width:200px; height:150px; border-radius:1px;" />
+                                <div>
+                                    Price:&@p.Price &nbsp;&nbsp;<span style="color:red">Stock &nbsp;@p.Stock</span>
+                                </div>
+                                @if (p.CartFlag)
+                                {
+                            <button type="button" class="btn add-to-cart" style="background-color:#ffd800;" @onclick="(()=>AddToCart_Click(p))">Remove From Cart</button>
+                                }
+                                else
+                                {
+                                    <button type="button"class="btn add-to-cart" @onclick="(()=>AddToCart_Click(p))">Add to Cart</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code
+{
+    [CascadingParameter]
+    public EventCallback notify { get; set; }
+    public List<CategoryModel> categories { get; set; }
+    public List<ProductModel> products { get; set; }
+    public string categoryName = string.Empty;
+    public bool cartFlag = false;
+    public List<cartModel> myCart { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetCategories();
+    }
+
+    private async Task GetCategories()
+    {
+        categories = await userPanelService.GetCategories();
+        if (categories != null && categories.Count > 0)
+        {
+            await LoadProductByCategory(categories.FirstOrDefault());
+        }
+    }
+
+    private async Task LoadProductByCategory(CategoryModel category)
+    {
+        categoryName = category.Name;
+        products = await userPanelService.GetProductByCategoryId(category.Id);
+    }
+    private async Task AddToCart_Click(ProductModel productClicked)
+    {
+        cartFlag = true;
+        var result = await sessionStorage.GetAsync<List<cartModel>>("myCart");
+        if(!result.Success)
+        {
+            myCart = new List<cartModel>();
+            if(productClicked.CartFlag)
+            {
+                var existing_product = myCart.Where(x => x.ProdctId == productClicked.Id).FirstOrDefault();
+                if(existing_product != null)
+                {
+                    myCart.Remove(existing_product);
+                    await sessionStorage.SetAsync("myCart", myCart);
+                    await updateCartText();
+                }
+            }
+            else
+            {
+                cartModel cart = new cartModel();
+                cart.ProdctId = productClicked.Id;
+                cart.Quantity = 1;
+                cart.AvailableStock = Convert.ToInt32(productClicked.Stock);
+                cart.ProdctName = productClicked.Name;
+                cart.ProdctImage = productClicked.ImageUrl;
+                cart.Price = Convert.ToInt32(productClicked.Price);
+                myCart.Add(cart);
+                await sessionStorage.SetAsync("myCart", myCart);
+                await updateCartText();
+            }
+        }
+        else
+        {
+            myCart = result.Value;
+            if(productClicked.CartFlag)
+            {
+                var existing_product = myCart.Where(x => x.ProdctId == productClicked.Id).FirstOrDefault();
+                if(existing_product != null)
+                {
+                    myCart.Remove(existing_product);
+                    await sessionStorage.SetAsync("myCart", myCart);
+                }
+            }
+            else
+            {
+                cartModel cart = new cartModel();
+                cart.ProdctId = productClicked.Id;
+                cart.Quantity = 1;
+                cart.AvailableStock = Convert.ToInt32(productClicked.Stock);
+                cart.ProdctName = productClicked.Name;
+                cart.ProdctImage = productClicked.ImageUrl;
+                cart.Price = Convert.ToInt32(productClicked.Price);
+                myCart.Add(cart);
+                await sessionStorage.SetAsync("myCart", myCart);
+                await updateCartText();
+            }
+        }
+        await updateCartText();
+        await notify.InvokeAsync();
+    }
+    private async Task updateCartText()
+    {
+        if(cartFlag)
+        {
+            var result= await sessionStorage.GetAsync<List<cartModel>>("myCart");
+            if (result.Success)
+            {
+                foreach(var _product in products)
+                {
+                    _product.CartFlag = false;
+                }
+                myCart = result.Value;
+                foreach(var cart in myCart)
+                {
+                    var cart_product = products.Where(x => x.Id == cart.ProdctId).FirstOrDefault();
+                    if(cart_product != null)
+                    {
+                        cart_product.CartFlag = true;
+                    }
+                }
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            var result = await sessionStorage.GetAsync<List<cartModel>>("myCart");
+            if(result.Success)
+            {
+                cartFlag = true;
+            }
+        }
+    }
+}

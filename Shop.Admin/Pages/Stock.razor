@@ -1,0 +1,190 @@
+﻿@page "/stock"
+@using Shop.Admin.Services;
+@inject IAdminPanelService adminPanelService;
+@using Shop.DataModels.CustomModels;
+@using System.IO;
+
+<div class="card">
+    <h4 class="card-header">Product</h4>
+
+    <div class="card-body">
+        @if (stockList == null)
+        {
+            <p><em>Loading...</em></p>
+        }
+        else
+        {
+            <table class="table table-striped table-bordered bg-light">
+                <thead>
+                    <tr>
+                        <th style="width:15px;">Sr.No</th>
+                        <th>Name</th>
+                        <th>Stock</th>
+                        <th>Category</th>
+                        <th style="width:80px;">Add More Stock?</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var (index, prod) in stockList.Select((prod, i) => (i + 1, prod)))
+                    {
+                        <tr>
+                            <td>@index</td>
+                            <td>@prod.Name</td>
+                            <td>@prod.Stock</td>
+                            <td>@prod.CategoryName</td>
+                            <td><input type="button" class="btn btn-primary" value="AddStock" @onclick="(()=>AddButtonClick(prod))" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+@if (successPopup == true)
+{
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                Alert   <span class="close" @onclick="ToggleSuccessPopup">&times;</span>
+            </div>
+            <div class="modal-body">
+                @Message
+            </div>
+            <div class="modal-footer">
+                <input type="button" class="btn btn-primary" value="Close" @onclick="ToggleSuccessPopup" />
+            </div>
+        </div>
+    </div>
+}
+
+@if (showAddPopup == true)
+{
+   
+
+    <div class="modal fade show" id="myModal" style="display:block; background-color: rgba(10,10,10,.8);"
+         aria-modal="true" role="dialog">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Update Stock</h5>
+                    <span class="close" @onclick="ToggleNoPopup">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@stockToUpdate" OnValidSubmit="UpdateButtonClick">
+                        <DataAnnotationsValidator />
+                        <div class="form-row">
+                            <div class="form-group col-5">
+                                <label>Product Name:</label>
+                                <label>@stockToUpdate.Name</label>
+                            </div>
+                            <div>
+                                <label>Available Stock:</label>
+                                <label>@stockToUpdate.Stock</label>
+
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-5">
+                                New Stock:
+                                <InputNumber @bind-Value="stockToUpdate.NewStock" class="form-control"></InputNumber>
+                                <ValidationMessage For="@(()=>stockToUpdate.NewStock)"></ValidationMessage>
+                            </div>
+                            <div>
+                                <label>Total Stock:</label>
+                                <br />
+                                <label>@(stockToUpdate.Stock + stockToUpdate.NewStock )</label>
+
+                            </div>
+                        </div>
+                    </EditForm>
+                </div>
+                <div class="modal-footer">
+                    <input type="button" class="btn btn-primary" value="Update" @onclick="UpdateButtonClick" />
+                    <input type="button" class="btn btn-primary" value="No" @onclick="ToggleNoPopup" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+
+
+@code {
+    [CascadingParameter]
+    public EventCallback notify { get; set; }
+    public int CategoryId { get; set; }
+    public IReadOnlyList<IBrowserFile> selectedFiles;
+    public List<StockModel> stockList { get; set; }
+    public StockModel stockToUpdate = null;
+    public bool showAddPopup = false;
+    public bool showDeletePopup = false;
+    public bool successPopup = false;
+    string Message = string.Empty;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetProductStock();
+    }
+
+
+
+
+    public void ToggleSuccessPopup()
+    {
+        successPopup = successPopup = true ? false : true;
+    }
+
+    public void ToggleAddPopup()
+    {
+        showAddPopup = showAddPopup = true;
+    }
+
+    public void AddButtonClick(StockModel _stock)
+    {
+        stockToUpdate = _stock;
+        ToggleAddPopup();
+    }
+    public void ToggleNoPopup()
+    {
+        showAddPopup = showAddPopup == false;
+    }
+
+    public async Task UpdateButtonClick()
+    {
+        bool flag = await adminPanelService.UpdateProductStock(stockToUpdate);
+        ToggleAddPopup();
+        if (flag)
+        {
+            Message = "Product Stock Add Successfully !!";
+        }
+        else
+        {
+            Message = "Product Stock not Update Please Try Again !!";
+        }
+        ToggleSuccessPopup();
+        stockToUpdate = new StockModel();
+        await GetProductStock();
+         ToggleNoPopup();
+
+    }
+
+    public async Task GetProductStock()
+    {
+        stockList = await adminPanelService.GetProductStock();
+
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+
+
+
+        if (firstRender)
+        {
+            await notify.InvokeAsync();
+        }
+    }
+}

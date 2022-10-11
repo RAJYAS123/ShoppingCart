@@ -1,0 +1,386 @@
+﻿@page "/mycart"
+@using Shop.DataModels.CustomModels;
+@using Shop.Web.Services;
+@inject IUserPanelService userPanelService
+@inject ProtectedSessionStorage sessionStorage;
+@inject NavigationManager navManager;
+
+<style>
+    small-container {
+        max-width: 1080px;
+        padding-left: 10px;
+        padding-right: 10px;
+        margin: auto;
+    }
+
+    .cart-page {
+        margin: 20px auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .cart-info {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    th {
+        text-align: left;
+        padding: 5px;
+        color: #ffffff;
+        background: #808080;
+        font-weight: normal;
+    }
+
+    td {
+        padding: 10px 5px;
+    }
+
+    th input {
+        width: 40px;
+        height: 30px;
+        padding: 5px;
+    }
+
+    td a {
+        color: #ff523b;
+        font-size: 12px;
+    }
+
+    td img {
+        height: 80px;
+        width: 80px;
+        margin-right: 10px;
+    }
+
+    .total-price {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+        .total-price table {
+            border-top: 3px solid #ff523b;
+            width: 100%;
+            max-width: 400px;
+        }
+
+    td:last-child {
+        text-align: right;
+    }
+
+    th:last-child {
+        text-align: right;
+    }
+</style>
+<style>
+    input[type=radio] {
+        border: 0px;
+        width: 20%;
+        height: 1em;
+    }
+</style>
+
+<div style="padding:10px 0px 0px 10px; text-align:right;">
+    @if (userName != null && userEmail != null)
+    {
+        <span>
+            <span style="border:1px ridge #ff523b; background-color:#ff6a00; border-radius:10px; color:#ffffff">My Cart</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <b>
+                Name: @userName
+                &nbsp;&nbsp;
+                Email:@userEmail
+            </b>
+        </span>
+    }
+    @if (myCart != null && myCart.Count > 0)
+    {
+        <button type="button" class="btn btn-primary" value="Clear" @onclick="Clear_Click">Clear</button>
+    }
+
+</div>
+
+<div class="small-container cart-page">
+    @if (@myCart != null && @myCart.Count > 0)
+    {
+        <table>
+            <tr>
+                <th>Product</th>
+                <th>Remove</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>SubTotal</th>
+            </tr>
+            @foreach (var cart in myCart)
+            {
+                <tr>
+                    <td>
+                        <div class="cart-info">
+                            <img src="https://localhost:44318/@cart.ProdctImage" alt="Product Photo" />
+                            <div>
+                                <p>@cart.ProdctName</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td><a @onabort="(()=>RemoveFromCart_Click(cart))" style="cursor:pointer;">Remove</a></td>
+                    <td>₹@cart.Price</td>
+                    <td><input type="number" @bind="cart.Quantity" min="1" max="@cart.AvailableStock" @onclick="@onQuantityChanges" style="width:60px;" /></td>
+                    <td>₹@(cart.Price * cart.Quantity).00</td>
+                </tr>
+            }
+        </table>
+        <div class="total-price">
+            <table>
+                <tr>
+                    <td>SubTotal</td>
+                    <td>
+                        ₹@subTotal.00
+                    </td>
+                </tr>
+                <tr>
+                    <td>ShoppingCharges</td>
+                    <td>₹@shippingCharges.00</td>
+                </tr>
+                <tr>
+                    <td>Total</td>
+                    <td>₹@finalTotal.00</td>
+                </tr>
+                <tr>
+                    <td>Shipping Address</td>
+                    <td><textarea rows="3" cols="30" name="shippingaddress" placeholder="Shipping Address" @bind="ShippingAddress"></textarea></td>
+                </tr>
+                <tr>
+                    <td>Payment Mode</td>
+                    <td>
+                        <div style="text-align:left; margin:0px;">
+                            <EditForm Model="paymentModel">
+                                <InputRadioGroup @bind-Value="paymentModel.Name">
+                                    @foreach (var option in rdOption)
+                                        {
+                                        <InputRadio Value="option" /> @option <br />
+                                        }
+                                </InputRadioGroup>
+                            </EditForm>
+                        </div>
+                    </td>
+
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>
+                        @if (paymentModel.Name == "Stripe")
+                        {
+                            <div>
+                                <table>
+                                    <tr>
+                                        <td>
+                                            Card Number
+                                        </td>
+                                        <td>
+                                            <input type="email" name="email" placeholder="Card Numner" @bind="Stripcard_Number" autocomplete="off" style="width:150px;" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Exp Month
+                                        </td>
+                                        <td>
+                                            <input type="number" name="txtExpMonth" @bind="Stripeexp_Month" min="0" placeholder="ExpMonth" autocomplete="off" style="width:150px;" />
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Exp Year
+                                        </td>
+                                        <td>
+                                            <input type="number" name="txtExpYear" @bind="Stripeexp_Year" min="0" placeholder="ExpYear" autocomplete="off" style="width:150px;" />
+
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            CVV
+                                        </td>
+                                        <td>
+                                            <input type="email" name="email" @bind="Stripe_Cvc" min="0" placeholder="CVV" autocomplete="off" style="width:150px;" />
+
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        }
+                    </td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td><button type="button" value="Checkout" class="btn btn-primary" @onclick="@Checkout_click">CheckOut</button></td>
+                </tr>
+            </table>
+        </div>
+    }
+    else
+    {
+        <hr />
+        <div style="text-align:center;">
+            <img src="/images/pexels-shvets-production-7195232.jpg" style="width:500px;" />
+        </div>
+    }
+</div>
+
+
+@code {
+    [CascadingParameter]
+    public EventCallback notify { get; set; }
+    public List<cartModel> myCart { get; set; }
+    public string ShippingAddress { get; set; }
+    public string PaymentMode { get; set; }
+    public int subTotal { get; set; }
+    public int shippingCharges { get; set; }
+    public int finalTotal { get; set; }
+    public string userName { get; set; }
+    public string userEmail { get; set; }
+    public bool IsUserLoggedIn = false;
+    public string Stripcard_Number { get; set; }
+    public int Stripeexp_Month { get; set; }
+    public int Stripeexp_Year { get; set; }
+    public string Stripe_Cvc { get; set; }
+
+    PaymentModeModel paymentModel = new PaymentModeModel()
+    {
+        Name = "CashOnDelivery" //default value for payment mode 
+    };
+
+   
+    List<string> rdOption = new List<string> { "CashOnDelivery", "PayPal", "Stripe"};
+
+    protected override Task OnInitializedAsync()
+    {
+        shippingCharges = 100;
+        subTotal = 0;
+        PaymentMode = "Cash on Delivery";
+        return base.OnInitializedAsync();
+    }
+
+
+    private async Task RemoveFromCart_Click(cartModel cartItem)
+    {
+        myCart.Remove(cartItem);
+        await sessionStorage.SetAsync("myCart", myCart);
+        onQuantityChanges();
+        await notify.InvokeAsync();
+        
+    }
+
+    private void onQuantityChanges()
+    {
+        finalTotal = 0;
+        subTotal = 0;
+        foreach (var cart_item in myCart)
+        {
+            subTotal = subTotal + (cart_item.Price * cart_item.Quantity);
+        }
+        finalTotal = subTotal + shippingCharges;
+        StateHasChanged();
+    }
+
+    private async Task Checkout_click()
+    {
+        if (myCart != null && myCart.Count > 0)
+        {
+            myCart.FirstOrDefault().ShippingAddress = ShippingAddress;
+            myCart.FirstOrDefault().ShippingCharges = shippingCharges;
+            myCart.FirstOrDefault().SubTotal = subTotal;
+            myCart.FirstOrDefault().Total = finalTotal;
+            myCart.FirstOrDefault().PaymentMode = PaymentMode;
+
+            if (paymentModel.Name == "PayPal")
+            {
+                myCart.FirstOrDefault().PayPalPayment = finalTotal;
+                myCart.FirstOrDefault().PaymentMode = paymentModel.Name;
+
+            }
+            if (paymentModel.Name == "Stripe")
+            {
+                myCart.FirstOrDefault().Stripecard_number = Stripcard_Number;
+                myCart.FirstOrDefault().Stripeexp_Month = Stripeexp_Month;
+                myCart.FirstOrDefault().Stripeexp_Year = Stripeexp_Year;
+                myCart.FirstOrDefault().Stripe_Cvc = Stripe_Cvc;
+                myCart.FirstOrDefault().Stripe_Value = finalTotal;
+                myCart.FirstOrDefault().PaymentMode = paymentModel.Name;
+            }
+          
+
+            var user_key = await sessionStorage.GetAsync<string>("userKey");
+            if (user_key.Success)
+            {
+                myCart.FirstOrDefault().UserId = Convert.ToInt32(user_key.Value);
+            }
+            await sessionStorage.SetAsync("myCart", myCart);
+            IsUserLoggedIn = await userPanelService.IsUserLoggedIn();
+            if (IsUserLoggedIn)
+            {
+                var response = await userPanelService.Checkout(myCart);
+                if (response != null)
+                {
+                    myCart.Clear();
+                    await sessionStorage.SetAsync("myCart", myCart);
+                    await sessionStorage.SetAsync("latestOrder", response.Message);
+                    await notify.InvokeAsync();
+                    navManager.NavigateTo("myAccount");
+                }
+            }
+            else
+            {
+                await sessionStorage.SetAsync("checkoutAlert", "*** Note:Login/Register to place your Order !!");
+                navManager.NavigateTo("login");
+            }
+        }
+        else
+        {
+
+        }
+    }
+
+    private async Task Clear_Click()
+    {
+        myCart = new List<cartModel>();
+        await sessionStorage.DeleteAsync("myCart");
+        await notify.InvokeAsync();
+    }
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await sessionStorage.GetAsync<List<cartModel>>("myCart");
+            if (result.Success)
+            {
+                myCart = result.Value;
+                foreach (var item in myCart)
+                {
+                    subTotal = subTotal + (item.Price * item.Quantity);
+                }
+                if (myCart != null && myCart.Count > 0)
+                {
+                    ShippingAddress = myCart.FirstOrDefault().ShippingAddress;
+                }
+            }
+            finalTotal = subTotal + shippingCharges;
+            var session_Name = await sessionStorage.GetAsync<string>("userName");
+            var session_Email = await sessionStorage.GetAsync<string>("userEmail");
+            if (session_Name.Success && session_Email.Success)
+            {
+                userName = session_Name.Value;
+                userEmail = session_Email.Value;
+            }
+
+            StateHasChanged();
+        }
+    }
+
+}

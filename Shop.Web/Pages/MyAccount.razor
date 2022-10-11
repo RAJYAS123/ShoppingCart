@@ -1,0 +1,499 @@
+﻿@page "/myAccount"
+@using Shop.Web.Services;
+@using Shop.DataModels.CustomModels;
+@using Shop.DataModels.Models;
+@inject IUserPanelService userPanelService
+@inject ProtectedSessionStorage sessionStorage
+@inject NavigationManager navManager
+
+<style>
+    .column {
+        float: left;
+        padding: 4px;
+    }
+
+    .clearfix::after {
+        content: "";
+        clear: both;
+        display: table;
+    }
+
+    .menu {
+        width: 25%;
+        margin-top: 5px;
+        color: black;
+    }
+
+    .content {
+        width: 75%;
+    }
+
+    a {
+        cursor: pointer;
+    }
+
+    .vertical-menu {
+        width: 200px;
+        border: 2px ridge #bacf67;
+    }
+
+        .vertical-menu a {
+            background-color: #eee;
+            color: black;
+            display: block;
+            padding: 12px;
+            text-decoration: none;
+        }
+
+            .vertical-menu a:hover {
+                background-color: #ccc;
+            }
+
+            .vertical-menu a.active {
+                background-color: #bacf67;
+                color: white;
+            }
+
+    .card {
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+        max-width: 300px;
+        margin: auto;
+        text-align: center;
+        font-family: Arial;
+    }
+
+    .title {
+        color: gray;
+        font-size: 18px;
+    }
+</style>
+
+<style>
+    .modal {
+        position: fixed;
+        z-index: 1;
+        padding-top: 100px;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: rgb(0,0,0);
+        background-color: rgba(0,0,0,0.4);
+        display: block;
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 50%;
+        overflow: hidden;
+    }
+
+    .close {
+        color: #aaaaaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+        .close:hover {
+        }
+
+        .close:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+</style>
+@*<style>
+        #body {
+            padding: 30px
+        }
+
+        .select2-results__options[aria-multiselectable="true"] li {
+            padding-left: 30px;
+            position: relative
+        }
+
+            .select2-results__options[aria-multiselectable="true"] li:before {
+                position: absolute;
+                left: 8px;
+                opacity: .6;
+                top: 6px;
+                font-family: "FontAwesome";
+                content: "\f0c8";
+            }
+
+            .select2-results__options[aria-multiselectable="true"] li[aria-selected="true"]:before {
+                content: "\f14a";
+            }
+    </style>*@
+
+
+<div style="min-height:400px;">
+    <div class="column menu" style=" background-color:white; border-radius:15px;">
+        <div class="vertical-menu">
+            <a class="@(myAccountFlag ? "active" : "")" @onclick='(() => ChangeActiveMenu(" MyAccount"))'>My Account</a>
+            <a class="@(changePasswordFlag ? "active" : "")" @onclick='(() => ChangeActiveMenu(" ChangePassword"))'>Change Password </a>
+            <a class="@(orderHistoryFlag ? "active" : "")" @onclick='(() => ChangeActiveMenu(" OrderHistory"))'>Order History</a>
+        </div>
+    </div>
+    <div class="column content">
+        <div style="border:2px ridge #bacf67; padding:10px; border-radius:15px;">
+            <div style="border-bottom:2px ridge #bacf67;"><h4>@headerText</h4></div>
+            @if (myAccountFlag)
+            {
+                <div style="width:200px;">
+                    <div class="card">
+                        <img src="/images/7309681.jpg" alt="Profile" style="width:100%" />
+                        <p>Name:@userName</p>
+                        <p>Email:@userEmail</p>
+                    </div>
+                </div>
+            }
+
+            @if (changePasswordFlag)
+            {
+                <div style="width:400px;">
+                    <div class="form-group">
+                        <EditForm Model="@passwordModel" OnValidSubmit="ChangePassword_Click">
+                            <DataAnnotationsValidator />
+                            <div class="form-group">
+                                <label>Old Password</label>
+                                <InputText type="password" id="oldpwd" placeholder="Old Password" class="form-control" @bind-Value="passwordModel.OldPassword" autocomplete="off"></InputText>
+                                <ValidationMessage For="@(() => passwordModel.OldPassword)"></ValidationMessage>
+
+                            </div>
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <InputText type="password" id="newpwd" placeholder="New Password" class="form-control" @bind-Value="passwordModel.Password" autocomplete="off"></InputText>
+                                <ValidationMessage For="@(() => passwordModel.Password)"></ValidationMessage>
+
+                            </div>
+                            <div class="form-group">
+                                <label>Confirm Password</label>
+                                <InputText type="password" id="confirmpwd" placeholder="Confirm Password" class="form-control" @bind-Value="passwordModel.ConfirmPassword" autocomplete="off"></InputText>
+                                <ValidationMessage For="@(() => passwordModel.ConfirmPassword)"></ValidationMessage>
+
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-outline-primary btn-block" type="submit">Submit</button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            }
+
+            @if (orderHistoryFlag)
+            {
+                <table class="table table-striped table-bordered bg-light">
+                    <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Total #</th>
+                            <th>Order Date #</th>
+                            <th style="width:80px;">Track?</th>
+                            <th style="width:80px;">Details?</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ord in customerOrders)
+                        {
+                            <tr>
+                                <td>@ord.OrderId</td>
+                                <td>@ord.Total</td>
+                                <td>@ord.CreatedOn</td>
+                                <td>
+                                    <input type="button" class="btn btn-primary" value="Track" @onclick="(() => Track_Click(ord.OrderId))" />
+                                </td>
+                                <td>
+                                    <input type="button" class="btn btn-secondary" value="Details" @onclick="(() => Detail_Click(ord.OrderId))" />
+
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+@if (showTrackOrder == true)
+{
+    <div class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Track Order</h5>
+                <span class="close" @onclick="ToggleTrackOrderPopup">&times;</span>
+            </div>
+            <div class="modal-body">
+                @if (shippingUpdates != null && shippingUpdates.Count > 0)
+                {
+                    <table>
+                        <tbody>
+                            @foreach (var item in shippingUpdates)
+                            {
+                                <tr>
+                                    <td>@item</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <span>No Update on Order Shipping. Please check after some time</span>
+                }
+            </div>
+            <div class="modal-footer">
+                <input type="button" class="btn btn-primary" value="Close" @onclick="ToggleTrackOrderPopup" />
+            </div>
+
+        </div>
+    </div>
+}
+
+@if (showAlertMessage == true)
+{
+    <div class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Alert</h5>
+                <span class="close" @onclick="ToggleAlertMessage">&times;</span>
+            </div>
+            <div class="modal-body">
+                @alertMessage
+            </div>
+            <div class="modal-footer">
+                <input type="button" class="btn btn-primary" value="Close" @onclick="ToggleAlertMessage" />
+            </div>
+
+        </div>
+    </div>
+}
+
+@if (showOrderDetail == true)
+{
+    <div class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>Order Details</h5>
+                <span class="close" @onclick="ToggleOrderDetailPopup">&times;</span>
+            </div>
+            <div class="modal-body">
+                @if (@myCart != null && @myCart.Count > 0)
+                {
+                    <table class=" table table-bordered">
+                        @foreach (var cart in myCart)
+                        {
+                            <tr>
+
+                                <td style=" padding:0px">
+                                    <img src="https://localhost:44318/@cart.ProdctImage" alt="Product Image" width="120px;" />
+                                    <div>
+                                        <p>@cart.ProdctName</p>
+                                    </div>
+                                </td>
+                                <td style=" padding:0px">@cart.Quantity X ₹@cart.Price</td>
+                                <td style=" padding:0px">₹@(cart.Price * cart.Quantity).00</td>
+                            </tr>
+                        }
+                    </table>
+                    <table style="width:550px; border:1px ridge #f5750d;">
+                        <tr>
+                            <td>
+                                SubTotal =₹@subTotal.00
+                            </td>
+                            <td>ShoppingCharges = ₹@shippingCharges.00</td>
+                        </tr>
+                        <tr>
+                            <td>Total = ₹@finalTotal.00</td>
+                            <td>ShoppingAddress = @shippingAddress</td>
+                        </tr>
+                        <tr>
+                            <td>PaymentMode = @paymentMode</td>
+                        </tr>
+                    </table>
+                }
+            </div>
+            <div class="modal-footer">
+                <input type="button" class="btn btn-primary" value="Close" @onclick="ToggleOrderDetailPopup" />
+            </div>
+
+        </div>
+    </div>
+}
+
+
+@code {
+
+    [CascadingParameter]
+    public EventCallback notify { get; set; }
+    private string headerText = "myAccount";
+    private int userKey = 0;
+    private string userName = string.Empty;
+    private string userEmail = string.Empty;
+    private string alertMessage = string.Empty;
+    private bool myAccountFlag = true;
+    private bool changePasswordFlag = false;
+    private bool orderHistoryFlag = false;
+    private bool trackOrderFlag = false;
+    private bool showTrackOrder = false;
+    private bool showOrderDetail = false;
+    private bool showAlertMessage = false;
+    private List<ProductModel> products;
+    private List<CustomerOrder> customerOrders;
+    private PasswordModel passwordModel;
+    private ResponseModel response;
+    private List<string> shippingUpdates { get; set; }
+    private List<cartModel> myCart { get; set; }
+    private string shippingAddress { get; set; }
+    private int shippingCharges { get; set; }
+    private string paymentMode { get; set; }
+    private int subTotal { get; set; }
+    private int finalTotal { get; set; }
+
+
+    protected override Task OnInitializedAsync()
+    {
+        products = new List<ProductModel>();
+        customerOrders = new List<CustomerOrder>();
+        passwordModel = new PasswordModel();
+        return base.OnInitializedAsync();
+    }
+
+    private async Task ChangeActiveMenu(string menu)
+    {
+        headerText = menu;
+        if (headerText == "MyAccount")
+        {
+            myAccountFlag = true;
+            changePasswordFlag = false;
+            orderHistoryFlag = false;
+
+        }
+        else if (headerText == " ChangePassword")
+        {
+            StateHasChanged();
+            changePasswordFlag = true;
+            myAccountFlag = false;
+            myAccountFlag = false;
+
+        }
+        else if (headerText == " OrderHistory")
+        {
+            orderHistoryFlag = true;
+            myAccountFlag = false;
+            changePasswordFlag = false;
+            await GetOrderByCustomerId(userKey);
+
+        }
+
+    }
+
+    private async Task GetOrderByCustomerId(int customerId)
+    {
+        if (customerOrders.Count == 0)
+        {
+            customerOrders = await userPanelService.GetOrderByCustomerId(customerId);
+        }
+    }
+    private void ToggleAlertMessage()
+    {
+        showAlertMessage = showAlertMessage == true ? false : true;
+    }
+
+    private void ToggleOrderDetailPopup()
+    {
+        showOrderDetail = showOrderDetail == true ? false : true;
+    }
+
+    private void ToggleTrackOrderPopup()
+    {
+        showTrackOrder = showTrackOrder == true ? false : true;
+    }
+
+    private async Task Track_Click(string Order_Number)
+    {
+        shippingUpdates = await userPanelService.GetShippingStatusForOrder(Order_Number);
+        ToggleTrackOrderPopup();
+    }
+
+    private async Task Detail_Click(string Order_Number)
+    {
+        myCart = await userPanelService.GetOrderDetailForCustomer(userKey, Order_Number);
+        if (myCart != null)
+        {
+            shippingAddress = myCart.FirstOrDefault().ShippingAddress;
+            shippingCharges = myCart.FirstOrDefault().ShippingCharges;
+            subTotal = myCart.FirstOrDefault().SubTotal;
+            finalTotal = myCart.FirstOrDefault().Total;
+            paymentMode = myCart.FirstOrDefault().PaymentMode;
+        }
+        ToggleOrderDetailPopup();
+    }
+
+    private async Task ChangePassword_Click()
+    {
+        if (passwordModel.Password != passwordModel.ConfirmPassword)
+        {
+            alertMessage = "Password And Confirm Password Not Matched";
+            ToggleAlertMessage();
+        }
+        else
+        {
+            passwordModel.UserKey = userKey;
+            response = await userPanelService.ChangePassword(passwordModel);
+            if (response.Status)
+            {
+                passwordModel = new PasswordModel();
+                alertMessage = response.Message;
+                ToggleAlertMessage();
+            }
+            alertMessage = response.Message;
+            ToggleAlertMessage();
+            clear();
+        }
+    }
+
+
+    private async Task clear()
+    {
+        passwordModel = new PasswordModel();
+        await sessionStorage.DeleteAsync("userKey");
+        await notify.InvokeAsync();
+    }
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var session_useKey = await sessionStorage.GetAsync<string>("userKey");
+            var session_Name = await sessionStorage.GetAsync<string>("userName");
+            var session_Email = await sessionStorage.GetAsync<string>("userEmail");
+
+            if (session_useKey.Success && session_Name.Success && session_Email.Success)
+            {
+                userKey = Convert.ToInt32(session_useKey.Value);
+                userName = session_Name.Value;
+                userEmail = session_Email.Value;
+            }
+            var session_latestOrder = await sessionStorage.GetAsync<string>("latestOrder");
+            if (session_latestOrder.Success)
+            {
+                await sessionStorage.DeleteAsync("latestOrder");
+                await GetOrderByCustomerId(userKey);
+                await ChangeActiveMenu("OrderHistory");
+            }
+            StateHasChanged();
+        }
+    }
+}
+
+
+
